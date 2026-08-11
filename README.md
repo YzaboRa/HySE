@@ -409,6 +409,149 @@ Automatic error detection flags cases when the corresponding point is further aw
   <img src="https://github.com/user-attachments/assets/8cf3d3bc-9d21-40b3-bb7c-03cd382df050" width="800"/>
 </p>
 
+## Manual Registration - Remove frames afterwards
+Sometimes, frames that were previously selected reveal to be harder to register than expected. Provided that there are other frames properly registered for this wavelength combination, it can be best to remove it from the dataset to avoid contamination. This can be done the following way (with help from Claude Sonnet 5 from Anthropic)
+
+First identify which frame to remove (this must be noted down when registering the data):
+```python
+LabelToRemove = 'S67_Frame2'
+
+IndexToRemove = GoodFramesLabels.index(LabelToRemove)  # raises ValueError if not found
+print(f'Removing frame at position {IndexToRemove}: {GoodFramesLabels[IndexToRemove]}')
+```
+
+The clear the data and results from that frame:
+```python
+StaticIndex = index   # whatever StaticIndex/`index` was used for this registration run
+
+if IndexToRemove == StaticIndex:
+    raise ValueError(
+        "You're trying to remove the static/reference frame itself. "
+        "This needs a new StaticIndex and a full re-registration - it can't be "
+        "patched post-hoc, since every other frame's transform was computed "
+        "relative to this one."
+    )
+
+NewStaticIndex = StaticIndex - 1 if IndexToRemove < StaticIndex else StaticIndex
+
+NewGoodFramesLabels = GoodFramesLabels[:IndexToRemove] + GoodFramesLabels[IndexToRemove+1:]
+
+NewCoregisteredHypercube = np.delete(CoregisteredHypercube, IndexToRemove, axis=0)
+NewHypercubeForRegistration = np.delete(HypercubeForRegistration, IndexToRemove, axis=0)
+
+# CombinedMask is a single shared 2D mask (1000, 1154) - not per-frame, so it's unaffected
+NewCombinedMask = CombinedMask
+
+# AllPoints: only moving_points is per-frame; fixed_points is just the static frame's points
+NewAllPoints = {
+    'fixed_points': AllPoints['fixed_points'],
+    'moving_points': AllPoints['moving_points'][:IndexToRemove] + AllPoints['moving_points'][IndexToRemove+1:]
+}
+
+# AllTransforms: list aligned with GoodFramesLabels
+NewAllTransforms = AllTransforms[:IndexToRemove] + AllTransforms[IndexToRemove+1:]
+
+print(f'{len(NewGoodFramesLabels)} frames remain (was {len(GoodFramesLabels)}).')
+print(f'StaticIndex: {StaticIndex} -> {NewStaticIndex}')
+
+```
+And lastly update everything and overwrite previous files, to make sure that the bad frame won't pop back up if the intermediary files are reloaded.
+Note that this step overrides previous results (with the bad frame), so only run this code if you are certain the right frame has been removed. Saving previous results elsewhere as backup could help avoid bad surprises.
+
+```python
+# ---------------------------------------------------------------
+# 3. Recompute NMI on the trimmed data
+# ---------------------------------------------------------------
+NMI_before = HySE.GetNMI(NewHypercubeForRegistration)
+NMI_after = HySE.GetNMI(NewCoregisteredHypercube)
+print(f'Average NMI before: {NMI_before[0]:.4f}, after: {NMI_after[0]:.4f}')
+
+# ---------------------------------------------------------------
+# 4. Re-save everything to the SAME paths, overwriting the originals
+#    (adjust these to match your actual saved filenames)
+# ---------------------------------------------------------------
+np.savez(ArraySavingPath, NewCoregisteredHypercube)                 # registered array
+np.savez(OrigArraySavingPath, NewHypercubeForRegistration)          # unregistered/NoReg array
+np.savez(MaskSavingPath, NewCombinedMask)                           # mask
+np.savez(PointsSavingPath, NewAllPoints, allow_pickle=True)         # landmark points
+
+HySE.SaveAllTransforms(NewAllTransforms, NewGoodFramesLabels, filename=PathToSaveTransforms)
+
+# Regenerate the videos so they stay in sync with the trimmed data (optional but recommended)
+HySE.MakeHypercubeVideo(NewCoregisteredHypercube, VideoSavingPath, Normalise=True)
+HySE.MakeHypercubeVideo(NewCoregisteredHypercube, VideoSavingPathMasked, Mask=NewCombinedMask, Normalise=True)
+HySE.MakeHypercubeVideo(NewHypercubeForRegistration, OrigVideoSavingPath)
+
+# ---------------------------------------------------------------
+# 5. Update in-memory variables so the rest of the notebook uses the trimmed data
+# ---------------------------------------------------------------
+GoodFramesLabels = NewGoodFramesLabels
+CoregisteredHypercube = NewCoregisteredHypercube
+HypercubeForRegistration = NewHypercubeForRegistration
+CombinedMask = NewCombinedMask
+AllPoints = NewAllPoints
+AllTransforms = NewAllTransforms
+index = NewStaticIndex
+
+# # ---------------------------------------------------------------
+# # 6. Record the exclusion so a future GoodFrames reload
+# #    (from good_frames_mask / good_indices) doesn't reintroduce this frame
+# # ---------------------------------------------------------------
+# ExcludedFramesPath = f'{RegistrationPath}{Name}_ExcludedFrameLabels.npz'
+# try:
+#     ExcludedLabels = list(np.load(ExcludedFramesPath, allow_pickle=True)['arr_0'])
+# except FileNotFoundError:
+#     ExcludedLabels = []
+# if LabelToRemove not in ExcludedLabels:
+#     ExcludedLabels.append(LabelToRemove)
+# np.savez(ExcludedFramesPath, np.array(ExcludedLabels, dtype=object))
+# print(f'Excluded labels for {Name}: {ExcludedLabels}')
+
+import re
+
+# ---------------------------------------------------------------
+# Parse sweep/wav coordinates out of the label we already removed
+# ---------------------------------------------------------------
+m = re.match(r'S(\d+)_Frame(\d+)', LabelToRemove)
+SweepToRemove, WavToRemove = int(m.group(1)), int(m.group(2))
+print(f'Removing (sweep={SweepToRemove}, wav={WavToRemove}) from the frame selection files')
+
+# ---------------------------------------------------------------
+# Locate and cross-check against the row we already identified
+# ---------------------------------------------------------------
+match_rows = np.where((good_indices[:, 0] == SweepToRemove) &
+                       (good_indices[:, 1] == WavToRemove))[0]
+assert len(match_rows) == 1, f"Expected exactly one match, found {len(match_rows)}"
+row_idx = match_rows[0]
+assert row_idx == IndexToRemove, (
+    f"good_indices row {row_idx} doesn't match GoodFramesLabels position {IndexToRemove} - "
+    f"stop and double check ordering before overwriting anything."
+)
+
+# ---------------------------------------------------------------
+# Update the mask and indices
+# ---------------------------------------------------------------
+NewGoodFramesMask = good_frames_mask.copy()
+NewGoodFramesMask[SweepToRemove, WavToRemove] = False
+
+NewGoodIndices = np.delete(good_indices, row_idx, axis=0)
+
+print(f'good_frames_mask: {good_frames_mask.sum()} -> {NewGoodFramesMask.sum()} good frames')
+print(f'good_indices: {good_indices.shape} -> {NewGoodIndices.shape}')
+
+# ---------------------------------------------------------------
+# Overwrite the three saved files
+# ---------------------------------------------------------------
+np.savez(f'{RegistrationPath}{Name}_GoodFrames_Mask.npz', NewGoodFramesMask)
+np.savez(f'{RegistrationPath}{Name}_GoodFrames_Indices.npz', NewGoodIndices)
+np.savez(f'{RegistrationPath}{Name}_GoodFrames_Labels.npz', GoodFramesLabels)  # already trimmed earlier
+
+# ---------------------------------------------------------------
+# Update in-memory variables too, for consistency in this session
+# ---------------------------------------------------------------
+good_frames_mask = NewGoodFramesMask
+good_indices = NewGoodIndices
+```
 
 ### Automatic Registration
 <details markdown="1"><summary>Click to expand</summary>
