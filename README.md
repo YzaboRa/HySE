@@ -409,6 +409,33 @@ Automatic error detection flags cases when the corresponding point is further aw
   <img src="https://github.com/user-attachments/assets/8cf3d3bc-9d21-40b3-bb7c-03cd382df050" width="800"/>
 </p>
 
+## Manual Registration - Review points
+To review and potentially modify the points' location after manual registration, run:
+
+```python
+%matplotlib qt
+Reviewer = HySE.PointsReviewer(HypercubeForRegistration, AllLandmarkPoints, StaticIndex=index,GoodFramesLabels=GoodFramesLabels)
+```
+OR (if AllLandmarkPoints isn't defined but AllPoints - from the manual registration - is):
+```python
+%matplotlib qt
+Reviewer = HySE.PointsReviewer(HypercubeForRegistration, AllPoints, StaticIndex=index,GoodFramesLabels=GoodFramesLabels)
+```
+
+In the Reviewer GUI, individual points can be moved by double-clicking on them before clicking to the new location. 
+All frames can be reviewer in any order, and pressing the forward or backward arrows allows easy switching.
+
+Once review is done, if any of the points was changed, the registration must be ran again to compute the updated transforms, this time by providing the updated fixed points:
+
+```python
+UpdatedPoints = Reviewer.get_results()
+AllLandmarkPoints = UpdatedPoints
+
+## Then go back to the manual registration cell and run it again - it should not prompt the user to define points and should run with the provided points
+```
+Note that running the manual registration code again will override the previously saved results and transforms. In doubt, make sure to save the previously identified fixed point somewhere else as backup.
+
+
 ## Manual Registration - Remove frames afterwards
 Sometimes, frames that were previously selected reveal to be harder to register than expected. Provided that there are other frames properly registered for this wavelength combination, it can be best to remove it from the dataset to avoid contamination. This can be done the following way (with help from Claude Sonnet 5 from Anthropic)
 
