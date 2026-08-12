@@ -24,7 +24,7 @@ from tqdm import trange
 import inspect
 import matplotlib.patheffects as PathEffects
 
-from matplotlib.widgets import Slider, RadioButtons
+from matplotlib.widgets import Slider, RadioButtons, Button
 import scipy.ndimage as ndimage
 
 from PyQt5 import QtWidgets, QtCore, QtGui
@@ -55,354 +55,17 @@ import tempfile
 import pickle
 import re
 import json
-
+import traceback
 
 import SimpleITK as _sitk
-# import matplotlib.colors as mcolors
-# import matplotlib.cm as cm
+
+
 
 
 
 # OriginPosition = 'lower'
 OriginPosition = 'upper' ## standard python
 
-
-# class LandmarkPicker:
-# 	"""
-# 	An advanced interactive class to select corresponding points in two images
-# 	with undo, color-coding, enforced point selection, and image controls.
-# 	"""
-# 	def __init__(self, fixed_image, moving_image=None, fixed_points_to_display=None,
-# 				 frame_info=None, warning_message=None, deviation_threshold=150):
-# 		self.fixed_image = fixed_image
-# 		self.moving_image = moving_image
-# 		self.fixed_points = []
-# 		self.moving_points = []
-# 		self.plotted_artists = []
-# 		self.show_text_labels = False 
-# 		self.deviation_threshold = deviation_threshold
-# 		self.warning_messages = []
-
-# 		self.fig = plt.figure(figsize=(16, 9))
-
-# 		# --- ALLOW ZOOM/PAN ---
-# 		# We ensure the toolbar is active. The 'on_click' function checks its state.
-		
-# 		# Adjust layout to make room for widgets at the bottom
-# 		gs = self.fig.add_gridspec(1, 2, width_ratios=[1, 1], wspace=0.1)
-# 		self.fig.subplots_adjust(bottom=0.25, right=0.88)
-		
-# 		self.ax_fixed = self.fig.add_subplot(gs[0, 0])
-# 		self.ax_moving = self.fig.add_subplot(gs[0, 1])
-# 		self.axes = [self.ax_fixed, self.ax_moving]
-# 		self.cbar_ax = self.fig.add_axes([0.9, 0.25, 0.02, 0.6])
-
-# 		self.phase = 'moving' if moving_image is not None else 'fixed'
-
-# 		# --- SLIDERS ---
-# 		ax_color = 'lightgoldenrodyellow'
-		
-# 		# # Rotation Sliders
-# 		# ax_rot_f = self.fig.add_axes([0.15, 0.18, 0.25, 0.03], facecolor=ax_color)
-# 		# self.slider_rot_f = Slider(ax_rot_f, 'Rot Fixed', 0, 360, valinit=0)
-# 		# self.slider_rot_f.on_changed(self._update_rotation)
-
-
-# 		# --- DISPLAY IMAGES & STORE REFERENCES ---
-# 		# We store the image objects (im_obj) to update clims/cmap later without clearing axes
-# 		if self.phase == 'fixed':
-# 			self.num_total_points = None
-# 			self.fig.suptitle("PHASE 1: Select landmarks. Use toolbar to Zoom/Pan.\n'z': undo, 'p': labels. Close to finish.", fontsize=14)
-# 			self.fixed_img_norm = self._normalize(self.fixed_image)
-# 			self.im_fixed_obj = self.ax_fixed.imshow(self.fixed_img_norm, cmap='gray', origin=OriginPosition) # vmin=0, vmax=1,
-# 			self.ax_fixed.set_title('Click to select FIXED points')
-# 			self.ax_moving.axis('off')
-# 			self.im_moving_obj = None
-# 		else: # moving phase
-# 			self.fixed_points_to_display = fixed_points_to_display
-# 			self.num_total_points = len(self.fixed_points_to_display)
-# 			frame_str = f"Frame {frame_info[0]} / {frame_info[1]}"
-# 			self.fig.suptitle(f"PHASE 2: {frame_str}\nUse toolbar to Zoom/Pan. 'z': undo, 'p': labels, 'w': warnings. Select {self.num_total_points} points.", fontsize=14)
-			
-# 			self.fixed_img_norm = self._normalize(self.fixed_image)
-# 			self.im_fixed_obj = self.ax_fixed.imshow(self.fixed_img_norm, cmap='gray', origin=OriginPosition) #vmin=0, vmax=1, 
-# 			self.ax_fixed.set_title('FIXED points (reference)')
-			
-# 			self.moving_img_norm = self._normalize(self.moving_image)
-# 			self.im_moving_obj = self.ax_moving.imshow(self.moving_img_norm, cmap='gray', origin=OriginPosition) #vmin=0, vmax=1,
-		
-# 		if warning_message:
-# 			self.fig.text(0.5, 0.95, warning_message, color='red', ha='center', fontsize=12, weight='bold',
-# 						  bbox=dict(facecolor='white', alpha=0.8, edgecolor='none'))
-
-# 		# --- WIDGETS ---
-# 		# Define positions [left, bottom, width, height]
-# 		ax_color = 'lightgoldenrodyellow'
-		
-# 		# 1. Sliders for Fixed Image (Left side)
-# 		ax_fix_min = self.fig.add_axes([0.15, 0.1, 0.25, 0.03], facecolor=ax_color)
-# 		ax_fix_max = self.fig.add_axes([0.15, 0.06, 0.25, 0.03], facecolor=ax_color)
-# 		self.slider_fix_min = Slider(ax_fix_min, 'Fixed Min', 0.0, 1.0, valinit=0.0)
-# 		self.slider_fix_max = Slider(ax_fix_max, 'Fixed Max', 0.0, 1.0, valinit=1.0)
-		
-# 		self.slider_fix_min.on_changed(self.update_fixed_clim)
-# 		self.slider_fix_max.on_changed(self.update_fixed_clim)
-
-# 		# Position logic
-# 		self._move_to_active_screen()
-# 		self._redraw()
-
-# 		# 2. Sliders for Moving Image (Right side) - Only if in moving phase
-# 		if self.phase == 'moving':
-# 			ax_mov_min = self.fig.add_axes([0.55, 0.1, 0.25, 0.03], facecolor=ax_color)
-# 			ax_mov_max = self.fig.add_axes([0.55, 0.06, 0.25, 0.03], facecolor=ax_color)
-# 			self.slider_mov_min = Slider(ax_mov_min, 'Moving Min', 0.0, 1.0, valinit=0.0)
-# 			self.slider_mov_max = Slider(ax_mov_max, 'Moving Max', 0.0, 1.0, valinit=1.0)
-			
-# 			self.slider_mov_min.on_changed(self.update_moving_clim)
-# 			self.slider_mov_max.on_changed(self.update_moving_clim)
-
-# 		# 3. Radio Buttons for Colormap
-# 		ax_radio = self.fig.add_axes([0.92, 0.05, 0.07, 0.15], facecolor=ax_color)
-# 		self.radio = RadioButtons(ax_radio, ('gray', 'magma', 'viridis'))
-# 		self.radio.on_clicked(self.update_cmap)
-
-# 		self.cid_click = self.fig.canvas.mpl_connect('button_press_event', self.on_click)
-# 		self.cid_key = self.fig.canvas.mpl_connect('key_press_event', self.on_key)
-# 		self.cid_close = self.fig.canvas.mpl_connect('close_event', self.on_close)
-# 		self._redraw()
-
-# 	def _move_to_active_screen(self):
-# 		"""Finds mouse cursor and moves GUI to that monitor using QtGui.QCursor."""
-# 		try:
-# 			mngr = plt.get_current_fig_manager()
-# 			app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
-			
-# 			# Use QtGui.QCursor instead of QtWidgets.QCursor
-# 			screen = app.screenAt(QtGui.QCursor.pos())
-			
-# 			if screen:
-# 				geom = screen.availableGeometry()
-# 				win_w, win_h = 1600, 900
-# 				# Calculate center position relative to the specific screen
-# 				x = geom.left() + (geom.width() - win_w) // 2
-# 				y = geom.top() + (geom.height() - win_h) // 2
-# 				mngr.window.setGeometry(x, y, win_w, win_h)
-# 		except Exception as e:
-# 			print(f"Window positioning failed: {e}")
-
-# 	def _rotate_coord(self, x, y, angle_deg, reverse=False):
-# 		"""Coordinate transform around center."""
-# 		angle = np.radians(angle_deg)
-# 		if reverse: angle = -angle
-# 		ox, oy = self.center
-# 		qx = ox + np.cos(angle) * (x - ox) - np.sin(angle) * (y - oy)
-# 		qy = oy + np.sin(angle) * (x - ox) + np.cos(angle) * (y - oy)
-# 		return qx, qy
-
-# 	def _update_rotation(self, val):
-# 		self.rot_f = self.slider_rot_f.val
-# 		if self.phase == 'moving': self.rot_m = self.slider_rot_m.val
-# 		self._redraw()
-
-# 	def _on_contrast_change(self, val):
-# 		self._redraw()
-
-# 	def update_fixed_clim(self, val):
-# 		"""Callback to update contrast for the fixed image."""
-# 		if self.im_fixed_obj:
-# 			vmin = self.slider_fix_min.val
-# 			vmax = self.slider_fix_max.val
-# 			# Ensure vmin < vmax to avoid errors
-# 			if vmin >= vmax: 
-# 				vmax = vmin + 0.01
-# 			self.im_fixed_obj.set_clim(vmin, vmax)
-# 			self.fig.canvas.draw_idle()
-
-# 	def update_moving_clim(self, val):
-# 		"""Callback to update contrast for the moving image."""
-# 		if self.im_moving_obj:
-# 			vmin = self.slider_mov_min.val
-# 			vmax = self.slider_mov_max.val
-# 			if vmin >= vmax: 
-# 				vmax = vmin + 0.01
-# 			self.im_moving_obj.set_clim(vmin, vmax)
-# 			self.fig.canvas.draw_idle()
-
-# 	def update_cmap(self, label):
-# 		"""Callback to update the colormap for both images."""
-# 		if self.im_fixed_obj:
-# 			self.im_fixed_obj.set_cmap(label)
-# 		if self.im_moving_obj:
-# 			self.im_moving_obj.set_cmap(label)
-# 		self.fig.canvas.draw_idle()
-
-# 	def on_click(self, event):
-# 		if event.inaxes is None or event.button != 1: return
-		
-# 		# --- CHECK TOOLBAR & WIDGET STATE ---
-# 		# 1. If zoom/pan is active, ignore click
-# 		toolbar = self.fig.canvas.manager.toolbar
-# 		if toolbar is not None and toolbar.mode != '':
-# 			return
-			
-# 		# 2. If click is inside the main axes (not on sliders), proceed
-# 		# This prevents clicks on sliders from adding points
-# 		if event.inaxes not in [self.ax_fixed, self.ax_moving]:
-# 			return
-
-# 		x, y = event.xdata, event.ydata
-		
-# 		if self.phase == 'fixed' and event.inaxes == self.ax_fixed:
-# 			self.fixed_points.append((x, y))
-
-# 		elif self.phase == 'moving' and event.inaxes == self.ax_moving:
-# 			if len(self.moving_points) < self.num_total_points:
-# 				self.moving_points.append((x, y))
-# 				## Perform deviation test
-# 				idx = len(self.moving_points) - 1
-# 				p_fixed = self.fixed_points_to_display[idx]
-# 				p_moving = self.moving_points[idx]
-# 				dist = np.linalg.norm(np.array(p_fixed) - np.array(p_moving))
-
-# 				if dist > self.deviation_threshold:
-# 					warning = f"Point #{idx + 1} deviation: {dist:.1f} px (>{self.deviation_threshold} px)"
-# 					self.warning_messages.append(warning)
-# 					print(f"    /!\\ WARNING: {warning}")
-# 			else:
-# 				print("All fixed points have a corresponding moving point. Cannot add more.")
-
-# 		self._redraw()
-
-
-# 	def disconnect(self):
-# 		"""Disconnects all the matplotlib event connections."""
-# 		self.fig.canvas.mpl_disconnect(self.cid_click)
-# 		self.fig.canvas.mpl_disconnect(self.cid_key)
-# 		self.fig.canvas.mpl_disconnect(self.cid_close)
-
-# 	def on_close(self, event):
-# 		if self.phase == 'moving' and len(self.moving_points) < self.num_total_points:
-# 			print(f"ACTION BLOCKED: Please select all {self.num_total_points} points before closing the window.")
-# 		else:
-# 			self.disconnect() # Disconnect before closing
-# 			plt.close(self.fig)
-			
-# 	# def _normalize(self, img):
-# 		# p2, p98 = np.percentile(img, (2, 98)); return np.clip((img - p2) / (p98 - p2), 0, 1)
-
-# 	def _normalize(self, img):
-#     """Normalized using absolute min/max to preserve high-intensity details."""
-#     imin, imax = np.min(img), np.max(img)
-#     if imax == imin:
-#         return np.zeros_like(img, dtype=np.float32)
-#     return (img - imin) / (imax - imin)
-		
-
-# 	def on_click(self, event):
-# 		if event.inaxes is None or event.button != 1: return
-		
-# 		# --- CHECK TOOLBAR STATE ---
-# 		# If the toolbar exists and is in a mode (zoom/pan), don't add a point.
-# 		toolbar = self.fig.canvas.manager.toolbar
-# 		if toolbar is not None and toolbar.mode != '':
-# 			return
-
-# 		x, y = event.xdata, event.ydata
-		
-# 		if self.phase == 'fixed' and event.inaxes == self.ax_fixed:
-# 			self.fixed_points.append((x, y))
-
-# 		elif self.phase == 'moving' and event.inaxes == self.ax_moving:
-# 			if len(self.moving_points) < self.num_total_points:
-# 				self.moving_points.append((x, y))
-# 				## Perform deviation test
-# 				idx = len(self.moving_points) - 1
-# 				p_fixed = self.fixed_points_to_display[idx]
-# 				p_moving = self.moving_points[idx]
-# 				dist = np.linalg.norm(np.array(p_fixed) - np.array(p_moving))
-
-# 				if dist > self.deviation_threshold:
-# 					warning = f"Point #{idx + 1} deviation: {dist:.1f} px (>{self.deviation_threshold} px)"
-# 					self.warning_messages.append(warning)
-# 					print(f"    /!\\ WARNING: {warning}")
-# 			else:
-# 				print("All fixed points have a corresponding moving point. Cannot add more.")
-
-# 		self._redraw()
-
-
-# 	def on_key(self, event):
-# 		if event.key == 'z':
-# 			if self.phase == 'fixed' and self.fixed_points:
-# 				self.fixed_points.pop()
-# 			elif self.phase == 'moving' and self.moving_points:
-# 				# --- NEW: Remove warning associated with the undone point ---
-# 				point_idx_to_remove = len(self.moving_points)
-# 				# Filter out the warning for this specific point index
-# 				self.warning_messages = [
-# 					msg for msg in self.warning_messages 
-# 					if not msg.startswith(f"Point #{point_idx_to_remove}")
-# 				]
-# 				self.moving_points.pop()
-# 			self._redraw()
-
-# 		if event.key == 'w':
-# 			print(f'Erasing Warning Messages')
-# 			self.warning_messages = ['']
-# 			self._redraw()
-# 		elif event.key == 'p':
-# 			self.show_text_labels = not self.show_text_labels
-# 			print(f"Text labels toggled {'ON' if self.show_text_labels else 'OFF'}")
-# 			self._redraw()
-	
-# 	def _redraw(self):
-# 		for artist in self.plotted_artists: artist.remove()
-# 		self.plotted_artists.clear()
-# 		self.cbar_ax.clear()
-# 		if self.phase == 'moving':
-# 			self.ax_moving.set_title(f'Click to select MOVING point {len(self.moving_points)+1} of {self.num_total_points}')
-# 			if len(self.moving_points) == self.num_total_points:
-# 				self.ax_moving.set_title(f'All {self.num_total_points} points selected. You may now close the window.')
-
-# 		if self.warning_messages:
-# 			full_warning_text = "DEVIATION WARNINGS:\n" + "\n".join(self.warning_messages)
-# 			warning_artist = self.fig.text(0.5, 0.05, full_warning_text, color='red', 
-# 										   ha='center', fontsize=10, weight='bold',
-# 										   bbox=dict(facecolor='white', alpha=0.8, edgecolor='red'))
-# 			self.plotted_artists.append(warning_artist)
-		
-# 		points_to_color = self.fixed_points if self.phase == 'fixed' else self.fixed_points_to_display
-# 		num_colors = len(points_to_color) if len(points_to_color) > 1 else 2
-# 		cmap = plt.colormaps['jet']
-# 		colors = cmap(np.linspace(0, 1, num_colors))
-# 		for i, (x, y) in enumerate(points_to_color):
-# 			p = self.ax_fixed.plot(x, y, 'o', markersize=7, mfc=colors[i], mec='white', mew=0.5, alpha=0.6)
-# 			self.plotted_artists.extend(p)
-# 			if self.show_text_labels:
-# 				t = self.ax_fixed.text(x + 5, y, str(i+1), color='white', fontsize=10, weight='bold')
-# 				self.plotted_artists.append(t)
-# 		for i, (x, y) in enumerate(self.moving_points):
-# 			p = self.ax_moving.plot(x, y, 'o', markersize=7, mfc=colors[i], mec='white', mew=0.5, alpha=0.6)
-# 			self.plotted_artists.extend(p)
-# 			if self.show_text_labels:
-# 				t = self.ax_moving.text(x + 5, y, str(i+1), color='white', fontsize=10, weight='bold')
-# 				self.plotted_artists.append(t)
-# 		if len(points_to_color) > 0:
-# 			num_ticks = len(points_to_color)
-# 			norm = mcolors.Normalize(vmin=1, vmax=num_ticks)
-# 			sm = cm.ScalarMappable(cmap=cmap, norm=norm)
-# 			sm.set_array([])
-# 			ticks = np.linspace(1, num_ticks, num_ticks) if num_ticks > 1 else [1]
-# 			cbar = self.fig.colorbar(sm, cax=self.cbar_ax, ticks=ticks)
-# 			cbar.set_label('Point Index')
-# 		self.fig.canvas.draw()
-		
-# 	def get_points(self):
-# 		plt.show(block=True)
-# 		# --- MODIFIED: Disconnect handlers after the window is closed ---
-# 		self.disconnect()
-# 		return self.fixed_points if self.phase == 'fixed' else self.moving_points
 
 
 
@@ -1129,179 +792,6 @@ def SaveAllTransforms(transforms_list, labels_list=None, filename="RegistrationT
 
 
 
-
-
-# def ApplyAllTransforms(reduced_stack, LoadedOutcome, transforms_file_path, original_wavelengths=None, labels_list=None):
-# 	"""
-# 	Applies loaded transforms to a 3D stack of valid frames.
-# 	NaN values (from spatial normalisation masking) are preserved through resampling.
-	
-# 	Parameters:
-# 	-----------
-# 	reduced_stack : np.ndarray
-# 		3D array [N_valid, Y, X] containing the spatially normalized data (may contain NaNs).
-# 	LoadedOutcome : tuple, list/array, or None
-# 		The output from the FrameSelector. If None, assumes sequential frames.
-# 	transforms_file_path : str
-# 		Path to the .pkl file created by SaveAllTransforms.
-# 	original_wavelengths : list, optional
-# 		List of original frame names (used when LoadedOutcome is provided).
-# 	labels_list : list, optional
-# 		List of custom transform labels. Used if LoadedOutcome is None but custom labels were saved.
-# 	"""
-# 	# 1. Load Transforms
-# 	with open(transforms_file_path, 'rb') as f:
-# 		transform_dict = pickle.load(f)
-
-# 	n_valid, h, w = reduced_stack.shape
-
-# 	# 2. Unpack indices and handle labels based on LoadedOutcome presence
-# 	if LoadedOutcome is not None and len(LoadedOutcome) > 0:
-# 		if isinstance(LoadedOutcome, tuple) and len(LoadedOutcome) == 2:
-# 			good_indices = LoadedOutcome[1]
-# 		else:
-# 			good_indices = LoadedOutcome
-
-# 		# Handle default labels for standard multiplexed mode
-# 		if original_wavelengths is None:
-# 			max_w_idx = max(idx[1] for idx in good_indices)
-# 			original_wavelengths = [f"Frame{i}" for i in range(max_w_idx + 1)]
-# 	else:
-# 		good_indices = None
-
-# 	# 3. Prepare Output Array (float32 to support NaN)
-# 	transformed_stack = np.full((n_valid, h, w), np.nan, dtype=np.float32)
-# 	valid_labels = []
-
-# 	print(f"Applying transforms to {n_valid} frames...")
-
-# 	def _apply_nan_safe_resample(image_np, resample_fn):
-# 		"""
-# 		Applies a resampling function while preserving NaN regions.
-		
-# 		resample_fn: callable that takes a float32 numpy array and returns
-# 					 a resampled numpy array of the same shape.
-# 		"""
-# 		nan_mask = np.isnan(image_np)
-# 		has_nans = nan_mask.any()
-
-# 		if has_nans:
-# 			# Replace NaNs with 0 for resampling
-# 			clean = np.where(nan_mask, 0.0, image_np).astype(np.float32)
-# 			# Resample a float mask (1.0 = valid, 0.0 = NaN)
-# 			valid_mask = (~nan_mask).astype(np.float32)
-# 		else:
-# 			clean = image_np.astype(np.float32)
-
-# 		# Resample the data
-# 		warped = resample_fn(clean)
-
-# 		if has_nans:
-# 			# Resample the validity mask with the same transform
-# 			warped_mask = resample_fn(valid_mask)
-# 			# Any pixel where the resampled mask is below threshold gets NaN
-# 			# (threshold < 1.0 catches pixels that interpolated across the NaN boundary)
-# 			warped[warped_mask < 0.9] = np.nan
-
-# 		return warped
-
-# 	# Iterate strictly over the number of frames in the stack
-# 	for i in range(n_valid):
-# 		image_np = reduced_stack[i, :, :].astype(np.float32)
-		
-# 		# Determine the correct dictionary key based on our operating mode
-# 		if good_indices is not None:
-# 			s_idx, w_idx = good_indices[i]
-# 			label_key = f"S{s_idx}_{original_wavelengths[w_idx]}"
-# 		else:
-# 			# Sequential mode fallback: match either custom list or default "Frame_i" logic
-# 			if labels_list is not None:
-# 				label_key = labels_list[i]
-# 			else:
-# 				label_key = f"Frame_{i}"
-
-# 		if label_key not in transform_dict:
-# 			transformed_stack[i, :, :] = image_np
-# 			valid_labels.append(label_key)
-# 			continue
-
-# 		tform_data = transform_dict[label_key]
-
-# 		# --- CASE 1: FIXED FRAME (No Transform) ---
-# 		if isinstance(tform_data, int) and tform_data == 0:
-# 			transformed_stack[i, :, :] = image_np
-# 			valid_labels.append(label_key)
-# 			continue
-
-# 		# --- CASE 2: AUTOMATIC REGISTRATION (Elastix) ---
-# 		elif isinstance(tform_data, (list, tuple)) and len(tform_data) > 0 and isinstance(tform_data[0], dict):
-# 			try:
-# 				pm_vector = _sitk.VectorOfParameterMap()
-# 				for p_dict in tform_data:
-# 					pm = _sitk.ParameterMap()
-# 					for k, v in p_dict.items():
-# 						pm[k] = v
-# 					pm_vector.append(pm)
-
-# 				def _elastix_resample(arr_np):
-# 					sitk_img = _sitk.GetImageFromArray(arr_np)
-# 					transformix = _sitk.TransformixImageFilter()
-# 					transformix.SetMovingImage(sitk_img)
-# 					transformix.SetTransformParameterMap(pm_vector)
-# 					transformix.LogToConsoleOff()
-# 					return _sitk.GetArrayFromImage(transformix.Execute())
-
-# 				transformed_stack[i, :, :] = _apply_nan_safe_resample(image_np, _elastix_resample)
-# 				valid_labels.append(label_key)
-# 			except Exception as e:
-# 				print(f"Error applying Elastix map for {label_key}: {e}")
-# 			continue
-
-# 		# --- CASE 3: MANUAL REGISTRATION ---
-# 		elif isinstance(tform_data, _sitk.Transform):
-# 			final_transform = tform_data
-
-# 		# --- CASE 4: LEGACY LANDMARKS ---
-# 		elif isinstance(tform_data, (tuple, list)) and len(tform_data) == 2 and not isinstance(tform_data[0], dict):
-# 			src_pts, dst_pts = tform_data
-# 			src_flat = [coord for point in src_pts for coord in point]
-# 			dst_flat = [coord for point in dst_pts for coord in point]
-# 			final_transform = _sitk.LandmarkBasedTransformInitializer(
-# 				_sitk.BSplineTransform(2, 3),
-# 				src_flat,
-# 				dst_flat,
-# 				_sitk.BSplineTransformInitializerFilter.BSPLINE_ORDER_3
-# 			)
-# 		else:
-# 			print(f"Unknown transform format for {label_key}. Skipping.")
-# 			continue
-
-# 		# Apply Standard SimpleITK Resampling (Cases 3 & 4)
-# 		reference_sitk = _sitk.GetImageFromArray(np.zeros((h, w), dtype=np.float32))
-
-# 		def _sitk_resample(arr_np, transform=final_transform, ref=reference_sitk):
-# 			sitk_img = _sitk.GetImageFromArray(arr_np)
-# 			resampler = _sitk.ResampleImageFilter()
-# 			resampler.SetReferenceImage(ref)
-# 			resampler.SetTransform(transform)
-# 			resampler.SetInterpolator(_sitk.sitkLinear)
-# 			resampler.SetDefaultPixelValue(0)
-# 			return _sitk.GetArrayFromImage(resampler.Execute(sitk_img))
-
-# 		try:
-# 			transformed_stack[i, :, :] = _apply_nan_safe_resample(image_np, _sitk_resample)
-# 			valid_labels.append(label_key)
-# 		except Exception as e:
-# 			print(f"Failed to apply transform for {label_key}: {e}")
-
-# 	return transformed_stack, valid_labels
-
-
-
-# import pickle
-# import numpy as np
-# import SimpleITK as _sitk
-
 def ApplyAllTransforms(reduced_stack, LoadedOutcome, transforms_file_path, n_selected_frames=3, original_wavelengths=None, labels_list=None):
 	"""
 	Applies loaded transforms to a 3D stack of valid frames.
@@ -1712,3 +1202,275 @@ def PlotFixedPoints(HypercubeForRegistration, StaticIndex, AllPoints, SavingPath
 	plt.tight_layout()
 	plt.savefig(SavingPath, bbox_inches='tight', dpi=300)
 	plt.close()
+
+
+
+### ----------------------------------------------------------------------------------
+### ----------------------------------------------------------------------------------
+### ----------------------------------------------------------------------------------
+### ----------------------------------------------------------------------------------
+### ----------------------------------------------------------------------------------
+
+
+
+
+## Points Reviewer
+
+class PointsReviewer:
+	"""
+	Review and edit manually-placed landmark points, styled to match HySE's
+	LandmarkPicker (GridSpec layout, per-panel 0-1 normalized contrast sliders,
+	jet colormap point coding with colorbar, gray/magma/viridis radio buttons).
+
+	Left panel: fixed/static frame with fixed_points (always visible for reference).
+	Right panel: current moving frame, navigate with slider or left/right arrows.
+	Double-click a point to select it (drawn with a black ring), then click
+	elsewhere to move it. Right-click cancels a pending selection.
+	Click 'Finish / Save' when done.
+
+	To run:
+		%matplotlib qt
+		Reviewer = PointsReviewer(HypercubeForRegistration, AllLandmarkPoints, StaticIndex=index,GoodFramesLabels=GoodFramesLabels)
+
+	Extract:
+		UpdatedPoints = Reviewer.get_results()
+		AllLandmarkPoints = UpdatedPoints 
+
+	Then run the manual registration with AllLandmarkPoints already defined to re-compute the proper transforms
+
+	With Claude Sonnet 5 from Anthropic.
+	"""
+
+	def __init__(self, HypercubeForRegistration, AllPoints, StaticIndex,
+				 GoodFramesLabels=None, colourmap='magma', pick_radius=15):
+		self.cube = HypercubeForRegistration
+		self.n_frames = self.cube.shape[0]
+		self.StaticIndex = StaticIndex
+		self.labels = GoodFramesLabels if GoodFramesLabels is not None else \
+			[f'Frame {i}' for i in range(self.n_frames)]
+
+		self.fixed_points = np.array(AllPoints['fixed_points'], dtype=float)
+		self.moving_points = [np.array(p, dtype=float) for p in AllPoints['moving_points']]
+		self.n_points = len(self.fixed_points)
+
+		for i, pts in enumerate(self.moving_points):
+			if len(pts) != self.n_points:
+				print(f'WARNING: {self.labels[i]} has {len(pts)} points, '
+					  f'expected {self.n_points}. This WILL break navigation to that frame '
+					  f'until fixed.')
+
+		self.pick_radius = pick_radius
+		self.curr_frame = 0
+		self.selected_point = None
+		self.cmap_name = colourmap
+		self.plotted_artists = []
+
+		# --- Layout: matches LandmarkPicker's GridSpec + colorbar ---
+		self.fig = plt.figure(figsize=(16, 9))
+		gs = self.fig.add_gridspec(1, 2, width_ratios=[1, 1], wspace=0.1)
+		self.fig.subplots_adjust(bottom=0.3, right=0.88)
+
+		self.ax_fixed = self.fig.add_subplot(gs[0, 0])
+		self.ax_moving = self.fig.add_subplot(gs[0, 1])
+		self.cbar_ax = self.fig.add_axes([0.9, 0.3, 0.02, 0.55])
+
+		# --- Normalize each panel's own reference frame 0-1, like LandmarkPicker ---
+		self.fixed_img_norm = self._normalize(self.cube[self.StaticIndex])
+		self.im_fixed_obj = self.ax_fixed.imshow(self.fixed_img_norm, cmap=self.cmap_name)
+		self.ax_fixed.set_title(f'FIXED: {self.labels[self.StaticIndex]}')
+
+		self.moving_img_norm = self._normalize(self.cube[self.curr_frame])
+		self.im_moving_obj = self.ax_moving.imshow(self.moving_img_norm, cmap=self.cmap_name)
+
+		ax_color = 'lightgoldenrodyellow'
+
+		# --- Fixed-panel contrast sliders (0-1, same as LandmarkPicker) ---
+		ax_fix_min = self.fig.add_axes([0.15, 0.15, 0.25, 0.03], facecolor=ax_color)
+		ax_fix_max = self.fig.add_axes([0.15, 0.11, 0.25, 0.03], facecolor=ax_color)
+		self.slider_fix_min = Slider(ax_fix_min, 'Fixed Min', 0.0, 1.0, valinit=0.0)
+		self.slider_fix_max = Slider(ax_fix_max, 'Fixed Max', 0.0, 1.0, valinit=1.0)
+		self.slider_fix_min.on_changed(self.update_fixed_clim)
+		self.slider_fix_max.on_changed(self.update_fixed_clim)
+
+		# --- Moving-panel contrast sliders ---
+		ax_mov_min = self.fig.add_axes([0.55, 0.15, 0.25, 0.03], facecolor=ax_color)
+		ax_mov_max = self.fig.add_axes([0.55, 0.11, 0.25, 0.03], facecolor=ax_color)
+		self.slider_mov_min = Slider(ax_mov_min, 'Moving Min', 0.0, 1.0, valinit=0.0)
+		self.slider_mov_max = Slider(ax_mov_max, 'Moving Max', 0.0, 1.0, valinit=1.0)
+		self.slider_mov_min.on_changed(self.update_moving_clim)
+		self.slider_mov_max.on_changed(self.update_moving_clim)
+
+		# --- Colormap radio buttons ---
+		ax_radio = self.fig.add_axes([0.92, 0.1, 0.07, 0.15], facecolor=ax_color)
+		self.radio = RadioButtons(ax_radio, ('gray', 'magma', 'viridis'),
+								   active={'gray': 0, 'magma': 1, 'viridis': 2}.get(colourmap, 1))
+		self.radio.on_clicked(self.update_cmap)
+
+		# --- Frame navigation + Finish (additions beyond LandmarkPicker) ---
+		ax_slider = self.fig.add_axes([0.15, 0.04, 0.5, 0.03])
+		self.slider_frame = Slider(ax_slider, 'Frame', 0, self.n_frames - 1, valinit=0, valstep=1)
+		self.slider_frame.on_changed(self.on_frame_change)
+
+		ax_finish = self.fig.add_axes([0.75, 0.03, 0.13, 0.05])
+		self.btn_finish = Button(ax_finish, 'Finish / Save')
+		self.btn_finish.on_clicked(self.finish)
+
+		self.fig.canvas.mpl_connect('button_press_event', self.on_click)
+		self.fig.canvas.mpl_connect('key_press_event', self.on_key)
+
+		self._redraw()
+		plt.show()
+
+	def _normalize(self, img):
+		"""Matches LandmarkPicker's absolute min/max normalization."""
+		imin, imax = np.min(img), np.max(img)
+		if imax == imin:
+			return np.zeros_like(img, dtype=np.float32)
+		return (img - imin) / (imax - imin)
+
+	def _safe(method):
+		def wrapped(self, *args, **kwargs):
+			try:
+				return method(self, *args, **kwargs)
+			except Exception:
+				print(f'[PointsReviewer ERROR in {method.__name__}]')
+				traceback.print_exc()
+		return wrapped
+
+	@_safe
+	def update_fixed_clim(self, val):
+		vmin, vmax = self.slider_fix_min.val, self.slider_fix_max.val
+		if vmin >= vmax:
+			vmax = vmin + 0.01
+		self.im_fixed_obj.set_clim(vmin, vmax)
+		self.fig.canvas.draw_idle()
+
+	@_safe
+	def update_moving_clim(self, val):
+		vmin, vmax = self.slider_mov_min.val, self.slider_mov_max.val
+		if vmin >= vmax:
+			vmax = vmin + 0.01
+		self.im_moving_obj.set_clim(vmin, vmax)
+		self.fig.canvas.draw_idle()
+
+	@_safe
+	def update_cmap(self, label):
+		self.cmap_name = label
+		self.im_fixed_obj.set_cmap(label)
+		self.im_moving_obj.set_cmap(label)
+		self.fig.canvas.draw_idle()
+
+	@_safe
+	def on_frame_change(self, val):
+		self.curr_frame = int(val)
+		self.selected_point = None
+		self.moving_img_norm = self._normalize(self.cube[self.curr_frame])
+		self.im_moving_obj.set_data(self.moving_img_norm)
+		self._redraw()
+
+	@_safe
+	def on_key(self, event):
+		if event.key == 'right':
+			self.slider_frame.set_val(min(self.slider_frame.val + 1, self.slider_frame.valmax))
+		elif event.key == 'left':
+			self.slider_frame.set_val(max(self.slider_frame.val - 1, self.slider_frame.valmin))
+
+	@_safe
+	def on_click(self, event):
+		if event.inaxes is None or event.xdata is None:
+			return
+		toolbar = self.fig.canvas.manager.toolbar
+		if toolbar is not None and toolbar.mode != '':
+			return
+
+		which = 'fixed' if event.inaxes == self.ax_fixed else \
+			'moving' if event.inaxes == self.ax_moving else None
+		if which is None:
+			return
+
+		if event.button == 3:
+			self.selected_point = None
+			self._redraw()
+			return
+
+		pts = self.fixed_points if which == 'fixed' else self.moving_points[self.curr_frame]
+
+		if event.dblclick:
+			dists = np.hypot(pts[:, 0] - event.xdata, pts[:, 1] - event.ydata)
+			nearest = np.argmin(dists)
+			self.selected_point = (which, nearest) if dists[nearest] <= self.pick_radius else None
+			if self.selected_point is not None:
+				print(f'Point {nearest + 1} selected ({which}) - click the correct location to move it')
+			self._redraw()
+			return
+
+		if self.selected_point is not None and self.selected_point[0] == which:
+			_, pt_idx = self.selected_point
+			if which == 'fixed':
+				self.fixed_points[pt_idx] = [event.xdata, event.ydata]
+				if self.StaticIndex == self.curr_frame:
+					self.moving_points[self.StaticIndex][pt_idx] = [event.xdata, event.ydata]
+			else:
+				self.moving_points[self.curr_frame][pt_idx] = [event.xdata, event.ydata]
+				if self.curr_frame == self.StaticIndex:
+					self.fixed_points[pt_idx] = [event.xdata, event.ydata]
+			print(f'Moved point {pt_idx + 1} ({which}) to ({event.xdata:.1f}, {event.ydata:.1f})')
+			self.selected_point = None
+			self._redraw()
+
+	@_safe
+	def _redraw(self):
+		for artist in self.plotted_artists:
+			artist.remove()
+		self.plotted_artists.clear()
+		self.cbar_ax.clear()
+
+		moving_pts = self.moving_points[self.curr_frame]
+		n_pts_here = len(moving_pts)
+
+		cmap = plt.colormaps['jet']
+		num_colors = self.n_points if self.n_points > 1 else 2
+		colors = cmap(np.linspace(0, 1, num_colors))
+
+		for i, (x, y) in enumerate(self.fixed_points):
+			edge = 'black' if self.selected_point == ('fixed', i) else 'white'
+			lw = 2.5 if self.selected_point == ('fixed', i) else 0.5
+			p = self.ax_fixed.plot(x, y, 'o', markersize=8, mfc=colors[i], mec=edge, mew=lw, alpha=0.85)
+			self.plotted_artists.extend(p)
+			t = self.ax_fixed.text(x + 8, y, str(i + 1), color='white', fontsize=9, fontweight='bold')
+			self.plotted_artists.append(t)
+
+		for i, (x, y) in enumerate(moving_pts):
+			edge = 'black' if self.selected_point == ('moving', i) else 'white'
+			lw = 2.5 if self.selected_point == ('moving', i) else 0.5
+			p = self.ax_moving.plot(x, y, 'o', markersize=8, mfc=colors[i], mec=edge, mew=lw, alpha=0.85)
+			self.plotted_artists.extend(p)
+			t = self.ax_moving.text(x + 8, y, str(i + 1), color='white', fontsize=9, fontweight='bold')
+			self.plotted_artists.append(t)
+
+		tag = ' [STATIC - same as left]' if self.curr_frame == self.StaticIndex else ''
+		n_tag = '' if n_pts_here == self.n_points else f'  /!\\ {n_pts_here} pts (expected {self.n_points})'
+		self.ax_moving.set_title(f'{self.labels[self.curr_frame]} ({self.curr_frame + 1}/{self.n_frames}){tag}{n_tag}')
+
+		norm = mcolors.Normalize(vmin=1, vmax=num_colors)
+		sm = cm.ScalarMappable(cmap=cmap, norm=norm)
+		sm.set_array([])
+		ticks = np.linspace(1, num_colors, min(num_colors, 10)).astype(int) if num_colors > 1 else [1]
+		cbar = self.fig.colorbar(sm, cax=self.cbar_ax, ticks=ticks)
+		cbar.set_label('Point Index')
+
+		self.fig.canvas.draw()
+
+	def finish(self, event):
+		plt.close(self.fig)
+		self.updated_points = {
+			'fixed_points': self.fixed_points.tolist(),
+			'moving_points': [pts.tolist() for pts in self.moving_points]
+		}
+
+	def get_results(self):
+		if hasattr(self, 'updated_points'):
+			return self.updated_points
+		print('GUI not finished yet - click "Finish / Save" first.')
+		return None
+

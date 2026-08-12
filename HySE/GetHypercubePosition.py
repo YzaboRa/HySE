@@ -448,227 +448,234 @@ import HySE
 # # import HySE 
 
 def FindHypercube_RGB(DataPath, **kwargs):
-    """
-    Finding the positions of each sweep (EdgePos) but keeping the RGB format.
-    Assumes blind (need to input StartFrames), no automatic detection option
+	"""
+	Finding the positions of each sweep (EdgePos) but keeping the RGB format.
+	Assumes blind (need to input StartFrames), no automatic detection option
 
-    Input: 
-    
-    - DataPath: Path to the data
-    
-    - kwargs: Parameters for the smoothing of the data (savgol filter) and finding peaks
-             Sets to default numbers that typically give decent results if nothing is input
-                - Help = True: to print this help message')
-                - Automatic = True: Attempt to automatically detect StartFrames using the red channel.
-                - AutomaticThreshold = 30.0: Percentage of the min-max range to use a threshold for 
-                        automatic detectino
-                - StartFrames = list of integers: Indicates where the sweeps begins, when using the blind method
-                - MaxPlateauSize = Integer: Set the maximal expected size for a plateau.')
-                - DarkMin = 12: Set the minimal size of the long dark between succesive sweeps')
-                        Depends on the repeat numbner, and will impact the detection of individial sweeps')
-                - PlateauSize = Integer: Set the expected average size for a plateau (in frame number)')
-                        Depends on the repeat number and will impact how well double plateaux are handled')
-                        Automatically adjusts expected size when plateaux are detected, but needs to be set')
-                        manually if a full sweep could not be detected automatically.')
-                
-                - CropImDimensions = [xmin, xmax, ymin, ymax]: coordinates of image crop (default Full HD)')
-                - Ncolours = integer: if different from 8 (for example, if one FSK was off)')
-                - fps = 60. Integer (frame per second)
-                - RedOffset = 1: Integer by which the red channel is offset (adjust to get better plateau detection)
-                - SaveFig = True: Whether to save figure
-                
-    Output:
-    
-    - EdgePos: Positions indicating where each sections of frames is for each wavelength 
-               for all sweeps in the dataset
-    """
+	Input: 
+	
+	- DataPath: Path to the data
+	
+	- kwargs: Parameters for the smoothing of the data (savgol filter) and finding peaks
+			 Sets to default numbers that typically give decent results if nothing is input
+				- Help = True: to print this help message')
+				- Automatic = True: Attempt to automatically detect StartFrames using the red channel.
+				- AutomaticThreshold = 30.0: Percentage of the min-max range to use a threshold for 
+						automatic detectino
+				- StartFrames = list of integers: Indicates where the sweeps begins, when using the blind method
+				- MaxPlateauSize = Integer: Set the maximal expected size for a plateau.')
+				- DarkMin = 12: Set the minimal size of the long dark between succesive sweeps')
+						Depends on the repeat numbner, and will impact the detection of individial sweeps')
+				- PlateauSize = Integer: Set the expected average size for a plateau (in frame number)')
+						Depends on the repeat number and will impact how well double plateaux are handled')
+						Automatically adjusts expected size when plateaux are detected, but needs to be set')
+						manually if a full sweep could not be detected automatically.')
+				
+				- CropImDimensions = [xmin, xmax, ymin, ymax]: coordinates of image crop (default Full HD)')
+				- Ncolours = integer: if different from 8 (for example, if one FSK was off)')
+				- fps = 60. Integer (frame per second)
+				- RedOffset = 1: Integer by which the red channel is offset (adjust to get better plateau detection)
+				- SaveFig = True: Whether to save figure
+				
+	Output:
+	
+	- EdgePos: Positions indicating where each sections of frames is for each wavelength 
+			   for all sweeps in the dataset
+	"""
 
-    ## Check if user wants list of optional parameters
-    Help = kwargs.get('Help', False)
-    if Help:
-        print(inspect.getdoc(FindHypercube_RGB))
-        return 0
-    else:
-        print(f"Add 'Help=True' in input for a list and description of all optional parameters ")
+	## Check if user wants list of optional parameters
+	Help = kwargs.get('Help', False)
+	if Help:
+		print(inspect.getdoc(FindHypercube_RGB))
+		return 0
+	else:
+		print(f"Add 'Help=True' in input for a list and description of all optional parameters ")
 
-    ## Check if SaveFig
-    SaveFig = kwargs.get('SaveFig', True)
+	## Check if SaveFig
+	SaveFig = kwargs.get('SaveFig', True)
 
-    ## Check if user is setting fps
-    fps = kwargs.get('fps', 60)
-        
-    ## Check if user has set the max plateau size
-    MaxPlateauSize = kwargs.get('MaxPlateauSize')
-    if not MaxPlateauSize:
-        MaxPlateauSize = 40
-        print(f'Max plateau size set to default of {MaxPlateauSize}')
+	## Check if user is setting fps
+	fps = kwargs.get('fps', 60)
+		
+	## Check if user has set the max plateau size
+	MaxPlateauSize = kwargs.get('MaxPlateauSize')
+	if not MaxPlateauSize:
+		MaxPlateauSize = 40
+		print(f'Max plateau size set to default of {MaxPlateauSize}')
 
-    ## Check if user has set the minimum size of long dark (separating sweeps)
-    DarkMin = kwargs.get('DarkMin')
-    if not DarkMin:
-        DarkMin = 12
-        print(f'Min long dark size set to default of {DarkMin}')
-        
-    ## Check if the user has input the expected plateau size
-    PlateauSize = kwargs.get('PlateauSize')
-    if not PlateauSize:
-        PlateauSize = 45
-        print(f'Expected plateau size set to default {PlateauSize}')
+	## Check if user has set the minimum size of long dark (separating sweeps)
+	DarkMin = kwargs.get('DarkMin')
+	if not DarkMin:
+		DarkMin = 12
+		print(f'Min long dark size set to default of {DarkMin}')
+		
+	## Check if the user has input the expected plateau size
+	PlateauSize = kwargs.get('PlateauSize')
+	if not PlateauSize:
+		PlateauSize = 45
+		print(f'Expected plateau size set to default {PlateauSize}')
 
-    ## Check if the user wants to return the peaks
-    Ncolours = kwargs.get('Ncolours', 8)
+	## Check if the user wants to return the peaks
+	Ncolours = kwargs.get('Ncolours', 8)
 
-    ## Import trace
-    CropImDimensions = kwargs.get('CropImDimensions')
-    if not CropImDimensions:
-        trace = HySE.Import.ImportData(DataPath, Trace=True, RGB=True)
-    else:
-        CropImDimensions = kwargs['CropImDimensions']
-        trace = HySE.Import.ImportData(DataPath, Trace=True, CropImDimensions=CropImDimensions, RGB=True)
+	## Import trace
+	CropImDimensions = kwargs.get('CropImDimensions')
+	if not CropImDimensions:
+		trace = HySE.Import.ImportData(DataPath, Trace=True, RGB=True)
+	else:
+		CropImDimensions = kwargs['CropImDimensions']
+		trace = HySE.Import.ImportData(DataPath, Trace=True, CropImDimensions=CropImDimensions, RGB=True)
 
-    ## Determine StartFrames
-    Automatic = kwargs.get('Automatic', False)
-    RedOffset = kwargs.get('RedOffset', 1)
-    AutomaticThreshold = kwargs.get('AutomaticThreshold', 30.0)
-    
-    if Automatic:
-        print("Running automatic sweep detection on Red channel...")
-        ## Use Red channel
-        red_trace = trace[:, 2]
-        
-        ## Determine threshold for 'Dark'
-        min_val = np.min(red_trace)
-        # Use 98th percentile instead of max to avoid extreme flashes skewing the threshold up
-        max_val = np.percentile(red_trace, 98) 
-        threshold = min_val + AutomaticThreshold/100.0 * (max_val - min_val)
-        print(f'Threshold for {AutomaticThreshold}% is {threshold}')
-        
-        ## Find runs of dark frames
-        is_dark = red_trace < threshold
-        
-        ## Pad to detect edges at start/end
-        padded_dark = np.concatenate(([False], is_dark, [False]))
-        diffs = np.diff(padded_dark.astype(int))
-        
-        ## starts: where diff is 1 (False -> True)
-        dark_starts = np.where(diffs == 1)[0]
-        ## ends: where diff is -1 (True -> False)
-        dark_ends = np.where(diffs == -1)[0]
-        dark_lengths = dark_ends - dark_starts
-        
-        DetectedStartFrames = []
-        
-        # Calculate the dynamic length of a full sweep based on Ncolours
-        ExpectedSweepLength = (2 * Ncolours + 1) * PlateauSize
-        
-        for start, end, length in zip(dark_starts, dark_ends, dark_lengths):
-            ## If the dark period is long enough, a sweep might start right after it
-            if length >= DarkMin:
-                proposed_start = end + RedOffset
-                
-                ## Only add sweeps that fit within the remaining trace
-                if (proposed_start + ExpectedSweepLength) < len(red_trace):
-                    
-                    ## Lockout: Ensure the new start doesn't overlap with a currently running sweep
-                    if not DetectedStartFrames or (proposed_start - DetectedStartFrames[-1]) >= ExpectedSweepLength:
-                        DetectedStartFrames.append(proposed_start)
-                    else:
-                        # Optional: Print statement to debug suppressed false-starts
-                        # print(f"Suppressed false sweep start at {proposed_start} due to overlap.")
-                        pass
-        
-        StartFrames = DetectedStartFrames
-        if not StartFrames:
-            print("Warning: Automatic detection found no sweeps matching criteria.")
-            
-    else:
-        StartFrames = kwargs.get('StartFrames')
+	## Determine StartFrames
+	Automatic = kwargs.get('Automatic', False)
+	RedOffset = kwargs.get('RedOffset', 1)
+	AutomaticThreshold = kwargs.get('AutomaticThreshold', 30.0)
+	
+	if Automatic:
+		print("Running automatic sweep detection on Red channel...")
+		## Use Red channel
+		red_trace = trace[:, 2]
+		
+		## Determine threshold for 'Dark'
+		min_val = np.min(red_trace)
+		# Use 98th percentile instead of max to avoid extreme flashes skewing the threshold up
+		max_val = np.percentile(red_trace, 98) 
+		threshold = min_val + AutomaticThreshold/100.0 * (max_val - min_val)
+		print(f'Threshold for {AutomaticThreshold}% is {threshold}')
+		
+		## Find runs of dark frames
+		is_dark = red_trace < threshold
+		
+		## Pad to detect edges at start/end
+		padded_dark = np.concatenate(([False], is_dark, [False]))
+		diffs = np.diff(padded_dark.astype(int))
+		
+		## starts: where diff is 1 (False -> True)
+		dark_starts = np.where(diffs == 1)[0]
+		## ends: where diff is -1 (True -> False)
+		dark_ends = np.where(diffs == -1)[0]
+		dark_lengths = dark_ends - dark_starts
+		
+		DetectedStartFrames = []
+		
+		# Calculate the dynamic length of a full sweep based on Ncolours
+		ExpectedSweepLength = (2 * Ncolours + 1) * PlateauSize
+		
+		for start, end, length in zip(dark_starts, dark_ends, dark_lengths):
+			## If the dark period is long enough, a sweep might start right after it
+			if length >= DarkMin:
+				proposed_start = end + RedOffset
+				
+				## Only add sweeps that fit within the remaining trace
+				if (proposed_start + ExpectedSweepLength) < len(red_trace):
+					
+					## Lockout: Ensure the new start doesn't overlap with a currently running sweep
+					if not DetectedStartFrames or (proposed_start - DetectedStartFrames[-1]) >= ExpectedSweepLength:
+						DetectedStartFrames.append(proposed_start)
+					else:
+						# Optional: Print statement to debug suppressed false-starts
+						# print(f"Suppressed false sweep start at {proposed_start} due to overlap.")
+						pass
+		
+		StartFrames = DetectedStartFrames
+		if not StartFrames:
+			print("Warning: Automatic detection found no sweeps matching criteria.")
+			
+	else:
+		StartFrames = kwargs.get('StartFrames')
 
-    # Handle display and fallback if StartFrames is still None or empty
-    if StartFrames:
-        print(f'    StartFrames:\n    {StartFrames}')
-    else:
-        StartFrames = [0]
-        print(f'Using the blind method. Set StartFrames to indicate where the sweep(s) begins')
+	# Handle display and fallback if StartFrames is still None or empty
+	if StartFrames:
+		print(f'    StartFrames:\n    {StartFrames}')
+	else:
+		StartFrames = [0]
+		print(f'Using the blind method. Set StartFrames to indicate where the sweep(s) begins')
 
-    ## Add an attempted automatic detection to help user (prediction based on spacing):
-    if len(StartFrames) >= 2:
-        EstSpacing = StartFrames[1] - StartFrames[0]
-        MaxX = len(trace)
-        EstimatedSweeps = []
-        est_sweep = StartFrames[0]
-        while est_sweep < MaxX:
-            EstimatedSweeps.append(est_sweep)
-            est_sweep = est_sweep + EstSpacing
-        print(f'    Based on the first two indicated sweep positions, expected positions for the rest:')
-        print(f'    {EstimatedSweeps}')
+	## Add an attempted automatic detection to help user (prediction based on spacing):
+	if len(StartFrames) >= 2:
+		EstSpacing = StartFrames[1] - StartFrames[0]
+		MaxX = len(trace)
+		EstimatedSweeps = []
+		est_sweep = StartFrames[0]
+		while est_sweep < MaxX:
+			EstimatedSweeps.append(est_sweep)
+			est_sweep = est_sweep + EstSpacing
+		print(f'    Based on the first two indicated sweep positions, expected positions for the rest:')
+		print(f'    {EstimatedSweeps}')
 
-    EdgePos = []
-    for ww in range(0, len(StartFrames)):
-        startframe = StartFrames[ww]
-        EdgePos_sub = []
-        for i in range(0, 2 * Ncolours + 1): 
-            startpos = int(startframe + PlateauSize * (i))
-            EdgePos_sub.append([startpos, int(PlateauSize)])
-        EdgePos.append(EdgePos_sub)
-    EdgePos = np.array(EdgePos)
+	EdgePos = []
+	for ww in range(0, len(StartFrames)):
+		startframe = StartFrames[ww]
+		EdgePos_sub = []
+		for i in range(0, 2 * Ncolours + 1): 
+			startpos = int(startframe + PlateauSize * (i))
+			EdgePos_sub.append([startpos, int(PlateauSize)])
+		EdgePos.append(EdgePos_sub)
+	EdgePos = np.array(EdgePos)
 
-    ## Now make figure to make sure all is right
-    SweepColors = ['royalblue', 'indianred', 'limegreen', 'gold', 'darkturquoise', 'magenta', 'orangered', 'cyan', 'lime', 'hotpink']
-    if len(EdgePos) > len(SweepColors):
-        ExtraN = int((len(EdgePos) - len(SweepColors)) / len(SweepColors)) + 1
-        NewSweepColors = SweepColors.copy()
-        for u in range(0, ExtraN):
-            SweepColors.extend(NewSweepColors)
-    fs = 9
-    
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(13, 5))
-    RGB_colors = ['cornflowerblue', 'limegreen', 'red']
-    for r in range(0, 3):
-        ax.plot(trace[:, r], '.-', color=RGB_colors[r], label=f'i={r}')
-        
-    for k in range(0, len(EdgePos)):
-        edges = EdgePos[k]
-        for i in range(0, len(edges)):
-            s, ll = edges[i, 0], edges[i, 1]
-            ax.axvline(s, ls='dashed', c='grey') 
+	## Now make figure to make sure all is right
+	SweepColors = ['royalblue', 'indianred', 'limegreen', 'gold', 'darkturquoise', 'magenta', 'orangered', 'cyan', 'lime', 'hotpink']
+	if len(EdgePos) > len(SweepColors):
+		ExtraN = int((len(EdgePos) - len(SweepColors)) / len(SweepColors)) + 1
+		NewSweepColors = SweepColors.copy()
+		for u in range(0, ExtraN):
+			SweepColors.extend(NewSweepColors)
+	fs = 9
+	
+	fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(13, 5))
+	RGB_colors = ['cornflowerblue', 'limegreen', 'red']
+	for r in range(0, 3):
+		ax.plot(trace[:, r], '.-', color=RGB_colors[r], label=f'i={r}')
+		
+	for k in range(0, len(EdgePos)):
+		edges = EdgePos[k]
+		for i in range(0, len(edges)):
+			s, ll = edges[i, 0], edges[i, 1]
+			ax.axvline(s, ls='dashed', c='grey') 
 
-    ## Add time label
-    ax.set_xlabel('Frame', fontsize=16)
-    ax3 = ax.twiny()
-    ax3.set_xlim(ax.get_xlim())
-    NN = len(trace)
-    Nticks = 10
-    new_tick_locations = np.array([k * NN / Nticks for k in range(0, Nticks + 1)])
-    def tick_function(x):
-        V = x / fps
-        return ["%.0f" % z for z in V]
+	## Add time label
+	ax.set_xlabel('Frame', fontsize=16)
+	ax3 = ax.twiny()
+	ax3.set_xlim(ax.get_xlim())
+	NN = len(trace)
+	Nticks = 10
+	# new_tick_locations = np.array([k * NN / Nticks for k in range(0, Nticks + 1)])
+	duration = len(trace) / fps           # seconds
+	seconds = np.arange(0, np.floor(duration) + 1)
 
-    ax3.set_xticks(new_tick_locations)
-    ax3.set_xticklabels(tick_function(new_tick_locations))
+	tick_locations = seconds * fps
 
-    ax3.set_xlabel('Time [s]', fontsize=16)
-    ax.set_ylabel('Average image intensity (RGB)', fontsize=16)
-    ax.set_title('Trace and Detected Sweeps', fontsize=20)
-    ax.legend(fontsize=10)
-    plt.tight_layout()
-    
-    ## Find current path and time to save figure
-    cwd = os.getcwd()
-    time_now = datetime.now().strftime("%Y%m%d__%I-%M-%S-%p")
-    day_now = datetime.now().strftime("%Y%m%d")
-    
-    Name_withExtension = DataPath.split('/')[-1]
-    Name = Name_withExtension.split('.')[0]
-    Path = DataPath.replace(Name_withExtension, '')
+	ax3.set_xticks(tick_locations)
+	ax3.set_xticklabels([str(int(s)) for s in seconds])
+	def tick_function(x):
+		V = x / fps
+		return ["%.0f" % z for z in V]
 
-    if SaveFig:
-        PathToSave = f'{Path}{time_now}_{Name}_Trace.png'
-        print(f'Saving figure at this location: \n    {PathToSave}')
-        plt.savefig(PathToSave)
-    plt.show()
+	# ax3.set_xticks(new_tick_locations)
+	# ax3.set_xticklabels(tick_function(new_tick_locations))
 
-    return EdgePos
+	ax3.set_xlabel('Time [s]', fontsize=16)
+	ax.set_ylabel('Average image intensity (RGB)', fontsize=16)
+	ax.set_title('Trace and Detected Sweeps', fontsize=20)
+	ax.legend(fontsize=10)
+	plt.tight_layout()
+	
+	## Find current path and time to save figure
+	cwd = os.getcwd()
+	time_now = datetime.now().strftime("%Y%m%d__%I-%M-%S-%p")
+	day_now = datetime.now().strftime("%Y%m%d")
+	
+	Name_withExtension = DataPath.split('/')[-1]
+	Name = Name_withExtension.split('.')[0]
+	Path = DataPath.replace(Name_withExtension, '')
+
+	if SaveFig:
+		PathToSave = f'{Path}{time_now}_{Name}_Trace.png'
+		print(f'Saving figure at this location: \n    {PathToSave}')
+		plt.savefig(PathToSave)
+	plt.show()
+
+	return EdgePos
 
 
 def FindHypercube(DataPath, Wavelengths_list, **kwargs):
