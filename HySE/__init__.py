@@ -27,7 +27,11 @@ for loader, module_name, is_pkg in pkgutil.iter_modules(__path__):
 			globals()[name] = obj
 			__all__.append(name)
 
+
+## Classes are not automatically loaded
+## Manually load the classes for the frames selection and points review GUIs
 from .FramesSelection import FrameSelector
+from .PointsReview import PointsReviewer
 
 def help(name=None):
 	"""
