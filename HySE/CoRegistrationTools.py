@@ -1377,6 +1377,7 @@ def GetHypercubeForRegistration(Nsweep, Nframe, Path, EdgePos, Wavelengths_list,
 		- OnlySweep = True: If True, uses ComputeHypercube_RGB() to only load identified sweep. Otherwise
 			loads all sweeps.
 		- Wavelengths_list
+		- CropImDimensions
 		- kwargs:
 			- Help
 			- Buffer = 3 : How many frames to skip at the start and end of a sweep
@@ -1395,6 +1396,7 @@ def GetHypercubeForRegistration(Nsweep, Nframe, Path, EdgePos, Wavelengths_list,
 		return 0
 
 	Buffer = kwargs.get('Buffer')
+	CropImDimensions = kwargs.get('CropImDimensions')
 	AllSweeps = kwargs.get('AllSweeps', False)
 	OnlySweep = kwargs.get('OnlySweep', True)
 	if Buffer is None:
@@ -1407,10 +1409,16 @@ def GetHypercubeForRegistration(Nsweep, Nframe, Path, EdgePos, Wavelengths_list,
 
 		if OnlySweep:
 			print(f'Only loading single sweep:')
-			Hypercube_all, Dark_all = HySE.ComputeHypercube_RGB(Path, EdgePos, Buffer=Buffer, NsweepOnly=Nsweep, BlueShift=1, SaveArray=False)
+			if CropImDimensions:
+				Hypercube_all, Dark_all = HySE.ComputeHypercube_RGB(Path, EdgePos, Buffer=Buffer, NsweepOnly=Nsweep, BlueShift=1, CropImDimensions=CropImDimensions, SaveArray=False)
+			else:
+				Hypercube_all, Dark_all = HySE.ComputeHypercube_RGB(Path, EdgePos, Buffer=Buffer, NsweepOnly=Nsweep, BlueShift=1, SaveArray=False)
 		else:
-			print(f'Loading all sweeps (frame interator for memory efficiency):')
-			Hypercube_all, Dark_all = HySE.ComputeHypercube_RGB(Path, EdgePos, Buffer=Buffer, BlueShift=1, SaveArray=False)
+			if CropImDimensions:
+				Hypercube_all, Dark_all = HySE.ComputeHypercube_RGB(Path, EdgePos, Buffer=Buffer, BlueShift=1, CropImDimensions=CropImDimensions, SaveArray=False)
+			else:
+				print(f'Loading all sweeps (frame interator for memory efficiency):')
+				Hypercube_all, Dark_all = HySE.ComputeHypercube_RGB(Path, EdgePos, Buffer=Buffer, BlueShift=1, SaveArray=False)
 
 		print(f' -> Hypercube_all.shape: {Hypercube_all.shape}')
 		
@@ -1465,7 +1473,11 @@ def GetHypercubeForRegistration(Nsweep, Nframe, Path, EdgePos, Wavelengths_list,
 		if AllSweeps==False:
 			print('RGB mode is set to False')
 			print(f'  Note that you might need to adjust the buffer size to account for this. It is currently set to {Buffer}')
-			Hypercube_all, Dark_all = HySE.ComputeHypercube(Path, EdgePos, Buffer=Buffer, Average=False, Order=False, Help=False, SaveFig=False, SaveArray=False, Plot=False, ForCoRegistration=True)
+			if CropImDimensions:
+				Hypercube_all, Dark_all = HySE.ComputeHypercube(Path, EdgePos, Buffer=Buffer, Average=False, Order=False, Help=False, SaveFig=False, 
+					CropImDimensions=CropImDimensions, SaveArray=False, Plot=False, ForCoRegistration=True)
+			else:
+				Hypercube_all, Dark_all = HySE.ComputeHypercube(Path, EdgePos, Buffer=Buffer, Average=False, Order=False, Help=False, SaveFig=False, SaveArray=False, Plot=False, ForCoRegistration=True)
 			
 			if isinstance(Nframe, int):
 				HypercubeForRegistration = Hypercube_all[Nsweep,:,Nframe,:,:]

@@ -1,6 +1,3 @@
-
-
-
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2  # New dependency for robust Sobel
@@ -8,7 +5,7 @@ from skimage import feature, color, exposure
 from skimage.restoration import inpaint
 from scipy.ndimage import binary_dilation, gaussian_filter, median_filter
 
-### N.A. Functions written with Gemini
+### N.A. Functions written with Gemini and Claude
 
 
 def visualize_edge_density_overlay(hypercube, method='sobel', 
@@ -471,6 +468,10 @@ def GetBiopsyLocations(RegisteredHypercube, initial_rois=None, **kwargs):
 	**kwargs :
 		display_frame_idx (int): Index of the frame to display initially.
 		figsize (tuple): Optional figure size.
+		colours (list, optional): List of matplotlib colours (e.g. 'tab:green', 'tab:red'),
+			one per entry in `initial_rois`, used to draw/fill each pre-loaded ROI instead of
+			the default auto-cycled colour. Must be the same length as `initial_rois`. Has no
+			effect on ROIs drawn interactively after the GUI opens (those still auto-cycle).
 
 	Returns:
 	--------
@@ -485,7 +486,7 @@ def GetBiopsyLocations(RegisteredHypercube, initial_rois=None, **kwargs):
 	"""
 
 	class BiopsyPicker:
-		def __init__(self, cube, initial_rois=None, display_frame_idx=None, user_figsize=None):
+		def __init__(self, cube, initial_rois=None, display_frame_idx=None, user_figsize=None, colours=None):
 
 			if 'left' in mpl.rcParams['keymap.back']:
 				mpl.rcParams['keymap.back'].remove('left')
@@ -543,6 +544,7 @@ def GetBiopsyLocations(RegisteredHypercube, initial_rois=None, **kwargs):
 			self.fig = plt.figure(figsize=figsize)
 			gs = self.fig.add_gridspec(1, 1, left=0.05, right=0.9, bottom=0.2, top=0.89)
 			self.ax = self.fig.add_subplot(gs[0, 0])
+			self.ax.set_facecolor('xkcd:light rose')
 			
 			# Plot Image
 			self.img_norm = self._normalize(self.image_data)
@@ -582,9 +584,15 @@ def GetBiopsyLocations(RegisteredHypercube, initial_rois=None, **kwargs):
 
 
 			if initial_rois is not None:
-				for verts in initial_rois:
+				if colours is not None and len(colours) != len(initial_rois):
+					raise ValueError(
+						f"'colours' has {len(colours)} entries but 'initial_rois' has {len(initial_rois)} "
+						f"entries; they must be the same length."
+					)
+				for i, verts in enumerate(initial_rois):
 					self.current_roi_verts = list(verts)
-					self._finish_roi()
+					roi_color = colours[i] if colours is not None else None
+					self._finish_roi(color=roi_color)
 
 		def _normalize(self, img):
 			p2, p98 = np.nanpercentile(img, (0, 100))
@@ -626,7 +634,7 @@ def GetBiopsyLocations(RegisteredHypercube, initial_rois=None, **kwargs):
 				self.line_active.set_color(self._get_next_color())
 			self.fig.canvas.draw_idle()
 
-		def _finish_roi(self):
+		def _finish_roi(self, color=None):
 			if len(self.current_roi_verts) < 3:
 				print("ROI needs at least 3 points.")
 				self.current_roi_verts = []
@@ -634,7 +642,8 @@ def GetBiopsyLocations(RegisteredHypercube, initial_rois=None, **kwargs):
 				self.state = 'IDLE'
 				return
 
-			color = self._get_next_color()
+			if color is None:
+				color = self._get_next_color()
 			poly = plt.Polygon(self.current_roi_verts, closed=True, 
 							   facecolor=color, edgecolor=color, alpha=self.alpha_done, label=f"ROI {len(self.rois)+1}")
 			self.ax.add_patch(poly)
@@ -932,4 +941,6 @@ def GetBiopsyLocations(RegisteredHypercube, initial_rois=None, **kwargs):
 	picker = BiopsyPicker(RegisteredHypercube, initial_rois, user_figsize=figsize, **kwargs)
 	plt.show(block=True)
 	return picker.get_results()
+
+
 
