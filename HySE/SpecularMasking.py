@@ -397,6 +397,82 @@ def PlotSpecularOverview(Hypercube, SpecularMasks, CombinedMask, GoodFramesLabel
 	return Fig
 
 
+def MakeSpecularVideo(Hypercube, SpecularMasks, CombinedMask, SavingPathWithName, GoodFramesLabels=None,
+					  SideBySide=True, fps=10, PercMax=99.9, Fill=True, DimInvalid=True):
+	"""
+	Save an mp4 to check the specular masks frame by frame (same writer as HySE.MakeHypercubeVideo).
+
+	Each video frame shows the registered frame with the specular mask in red (semi-transparent fill +
+	yellow outline), the frame label and the % of valid pixels masked. The area excluded by CombinedMask
+	is dimmed. With SideBySide=True the untouched frame is placed on the left, so you can judge
+	that the mask covers the glints and only those.
+
+	Parameters:
+	-----------
+	Hypercube : 3D array (Nframes, Y, X), e.g. CoregisteredHypercube
+	SpecularMasks : 3D bool (Nframes, Y, X) from DetectSpecularReflections
+	CombinedMask : 2D bool (Y, X), True = invalid
+	SavingPathWithName : output path (.mp4 appended if missing)
+	GoodFramesLabels : optional list of labels, burned into each frame
+	SideBySide : raw frame | frame with mask (doubles the video width)
+	fps : frame rate (default 10, as in MakeHypercubeVideo)
+	PercMax : percentile of the valid pixels (over the whole cube) mapped to white. Common to
+		all frames, so brightness stays comparable from frame to frame.
+	Fill : also fill the masked pixels in red (False = outline only)
+	DimInvalid : darken the area excluded by CombinedMask
+	"""
+	N, H, W = Hypercube.shape
+	if SpecularMasks.shape != (N, H, W):
+		raise ValueError(f'SpecularMasks {SpecularMasks.shape} does not match the hypercube {Hypercube.shape}.')
+	CombinedMask = np.asarray(CombinedMask, dtype=bool)
+	if CombinedMask.shape != (H, W):
+		raise ValueError(f'CombinedMask {CombinedMask.shape} does not match the frames {(H, W)}.')
+	if GoodFramesLabels is not None and len(GoodFramesLabels) != N:
+		raise ValueError(f'{len(GoodFramesLabels)} labels for {N} frames.')
+	Labels = list(GoodFramesLabels) if GoodFramesLabels is not None else [f'Frame {i}' for i in range(N)]
+	Valid = ~CombinedMask
+	NValid = max(int(Valid.sum()), 1)
+
+	# One display scale for the whole cube (sampled to limit memory; a subsample of valid pixels is plenty)
+	Sample = np.concatenate([np.nan_to_num(Hypercube[i][Valid][::7].astype(np.float32)) for i in range(N)])
+	Hi = float(np.percentile(Sample, PercMax)) if Sample.size else 1.0
+	if Hi <= 0:
+		Hi = 1.0
+
+	if not SavingPathWithName.endswith('.mp4'):
+		SavingPathWithName += '.mp4'
+	OutW = 2 * W if SideBySide else W
+	Out = cv2.VideoWriter(SavingPathWithName, cv2.VideoWriter_fourcc(*'mp4v'), fps, (OutW, H), True)
+	if not Out.isOpened():
+		raise IOError(f'Could not open {SavingPathWithName} for writing.')
+
+	Kernel = np.ones((3, 3), np.uint8)
+	Scale = max(H, W) / 1000.0
+	for i in range(N):
+		F = np.nan_to_num(Hypercube[i].astype(np.float32))
+		G = (np.clip(F / Hi, 0, 1) ** 0.8 * 255).astype(np.uint8)
+		Base = cv2.cvtColor(G, cv2.COLOR_GRAY2BGR)
+		if DimInvalid:
+			Base[CombinedMask] = (Base[CombinedMask] * 0.4).astype(np.uint8)
+		Over = Base.copy()
+		M = SpecularMasks[i]
+		if Fill:
+			Over[M] = (0.45 * Over[M] + 0.55 * np.array([0, 0, 255])).astype(np.uint8)
+		Edge = M & ~cv2.erode(M.astype(np.uint8), Kernel).astype(bool)
+		Over[Edge] = (0, 255, 255)
+
+		Pct = 100.0 * (M & Valid).sum() / NValid
+		Text = f'{Labels[i]}  ({i + 1}/{N})  masked: {Pct:.2f}%'
+		Panel = np.hstack([Base, Over]) if SideBySide else Over
+		for Colour, Thick in (((0, 0, 0), 4), ((255, 255, 255), 2)):     # outlined text stays readable on any background
+			cv2.putText(Panel, Text, (int(15 * Scale), int(45 * Scale)), cv2.FONT_HERSHEY_SIMPLEX,
+						1.2 * Scale, Colour, max(int(Thick * Scale), 1), cv2.LINE_AA)
+		Out.write(np.ascontiguousarray(Panel))
+
+	Out.release()
+	print(f'Specular mask video ({N} frames, {OutW}x{H}, {fps} fps) saved to {SavingPathWithName}')
+
+
 class SpecularMaskReviewer:
 	"""
 	Tune and check the specular mask frame by frame.
